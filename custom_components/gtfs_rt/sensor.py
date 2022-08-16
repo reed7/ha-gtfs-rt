@@ -249,5 +249,5 @@ class PublicTransportData(object):
             positions[vehicle.vehicle.id] = vehicle.position
             vehicles_trips[vehicle.trip.trip_id] = vehicle.vehicle.id
             # occupancy[vehicle.vehicle.id] = OccupancyStatus(vehicle.occupancy_status).name
-            occupancy[vehicle.vehicle.id] = vehicle.occupancy_percentage
+            occupancy[vehicle.vehicle.id] = vehicle.occupancy_percentage if vehicle.HasField('occupancy_percentage') else vehicle.occupancy_status
         return positions, vehicles_trips, occupancy
