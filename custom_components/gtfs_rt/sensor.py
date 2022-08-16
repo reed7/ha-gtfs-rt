@@ -199,7 +199,7 @@ class PublicTransportData(object):
             if entity.HasField('trip_update'):
                 route_id = entity.trip_update.trip.route_id
                 # 0 - Northbound, 1 - Southbound
-                trip_direction = entity.trip_update.trip.direction_id
+                trip_direction = str(entity.trip_update.trip.direction_id)
 
                 # Get link between vehicle_id from trip_id from vehicles positions if needed
                 vehicle_id = entity.trip_update.vehicle.id
