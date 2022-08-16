@@ -20,10 +20,10 @@ ATTR_DIRECTION = "Direction"
 ATTR_ROUTE = "Route"
 ATTR_DUE_IN = "Due in"
 ATTR_DUE_AT = "Due at"
-ATTR_OCCUPANCY = "Occupancy"
-ATTR_NEXT_UP = "Next bus"
-ATTR_NEXT_UP_DUE_IN = "Next bus due in"
-ATTR_NEXT_OCCUPANCY = "Next bus occupancy"
+ATTR_OCCUPANCY = "Occupancy %"
+ATTR_NEXT_UP = "Next ride"
+ATTR_NEXT_UP_DUE_IN = "Next ride due in"
+ATTR_NEXT_OCCUPANCY = "Next ride occupancy"
 
 CONF_API_KEY = 'api_key'
 CONF_APIKEY = 'apikey'
@@ -42,8 +42,8 @@ MIN_TIME_BETWEEN_UPDATES = datetime.timedelta(seconds=60)
 TIME_STR_FORMAT = "%H:%M"
 
 DIRECTION_ID_MAPPING = {
-    '0': 'Northbound',
-    '1': 'Southbound'
+    '0': 'Outbound',
+    '1': 'Inbound'
 }
 
 
@@ -248,5 +248,6 @@ class PublicTransportData(object):
                 continue
             positions[vehicle.vehicle.id] = vehicle.position
             vehicles_trips[vehicle.trip.trip_id] = vehicle.vehicle.id
-            occupancy[vehicle.vehicle.id] = OccupancyStatus(vehicle.occupancy_status).name
+            # occupancy[vehicle.vehicle.id] = OccupancyStatus(vehicle.occupancy_status).name
+            occupancy[vehicle.vehicle.id] = vehicle.occupancy_percentage
         return positions, vehicles_trips, occupancy
