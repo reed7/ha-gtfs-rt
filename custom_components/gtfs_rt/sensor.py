@@ -16,6 +16,7 @@ import homeassistant.helpers.config_validation as cv
 _LOGGER = logging.getLogger(__name__)
 
 ATTR_STOP_ID = "Stop ID"
+ATTR_DIRECTION = "Direction"
 ATTR_ROUTE = "Route"
 ATTR_DUE_IN = "Due in"
 ATTR_DUE_AT = "Due at"
@@ -29,6 +30,7 @@ CONF_APIKEY = 'apikey'
 CONF_X_API_KEY = 'x_api_key'
 CONF_STOP_ID = 'stopid'
 CONF_ROUTE = 'route'
+CONF_DIRECTION_ID = 'direction_id'
 CONF_DEPARTURES = 'departures'
 CONF_TRIP_UPDATE_URL = 'trip_update_url'
 CONF_VEHICLE_POSITION_URL = 'vehicle_position_url'
@@ -38,6 +40,11 @@ ICON = 'mdi:bus'
 
 MIN_TIME_BETWEEN_UPDATES = datetime.timedelta(seconds=60)
 TIME_STR_FORMAT = "%H:%M"
+
+DIRECTION_ID_MAPPING = {
+    '0': 'Northbound',
+    '1': 'Southbound'
+}
 
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -49,7 +56,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_DEPARTURES): [{
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
         vol.Required(CONF_STOP_ID): cv.string,
-        vol.Required(CONF_ROUTE): cv.string
+        vol.Required(CONF_ROUTE): cv.string,
+        vol.Required(CONF_DIRECTION_ID): cv.string
     }]
 })
 
@@ -78,6 +86,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         sensors.append(PublicTransportSensor(
             data,
             departure.get(CONF_STOP_ID),
+            departure.get(CONF_DIRECTION_ID),
             departure.get(CONF_ROUTE),
             departure.get(CONF_NAME)
         ))
@@ -88,11 +97,12 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class PublicTransportSensor(Entity):
     """Implementation of a public transport sensor."""
 
-    def __init__(self, data, stop, route, name):
+    def __init__(self, data, stop, direction, route, name):
         """Initialize the sensor."""
         self.data = data
         self._name = name
         self._stop = stop
+        self._direction = direction
         self._route = route
         self.update()
 
@@ -101,7 +111,7 @@ class PublicTransportSensor(Entity):
         return self._name
 
     def _get_next_buses(self):
-        return self.data.info.get(self._route, {}).get(self._stop, [])
+        return self.data.info.get(self._route, {}).get(self._direction, {}).get(self._stop, [])
 
     @property
     def state(self):
@@ -116,6 +126,7 @@ class PublicTransportSensor(Entity):
         attrs = {
             ATTR_DUE_IN: self.state,
             ATTR_STOP_ID: self._stop,
+            ATTR_DIRECTION: DIRECTION_ID_MAPPING[self._direction],
             ATTR_ROUTE: self._route
         }
         if len(next_buses) > 0:
@@ -187,6 +198,8 @@ class PublicTransportData(object):
         for entity in feed.entity:
             if entity.HasField('trip_update'):
                 route_id = entity.trip_update.trip.route_id
+                # 0 - Northbound, 1 - Southbound
+                trip_direction = entity.trip_update.trip.direction_id
 
                 # Get link between vehicle_id from trip_id from vehicles positions if needed
                 vehicle_id = entity.trip_update.vehicle.id
@@ -194,11 +207,11 @@ class PublicTransportData(object):
                     vehicle_id = vehicles_trips.get(entity.trip_update.trip.trip_id)
 
                 if route_id not in departure_times:
-                    departure_times[route_id] = {}
+                    departure_times[route_id] = {'0': {}, '1': {}}
                 for stop in entity.trip_update.stop_time_update:
                     stop_id = stop.stop_id
-                    if not departure_times[route_id].get(stop_id):
-                        departure_times[route_id][stop_id] = []
+                    if not departure_times[route_id][trip_direction].get(stop_id):
+                        departure_times[route_id][trip_direction][stop_id] = []
                     # Keep only future arrival.time (gtfs data can give past arrival.time, which is useless and show negative time as result)
                     if int(stop.arrival.time) > int(time.time()):
                         # Use stop departure time; fall back on stop arrival time if not available
@@ -207,12 +220,13 @@ class PublicTransportData(object):
                             vehicle_positions.get(vehicle_id),
                             vehicle_occupancy.get(vehicle_id)
                         )
-                        departure_times[route_id][stop_id].append(details)
+                        departure_times[route_id][trip_direction][stop_id].append(details)
 
         # Sort by arrival time
         for route in departure_times:
-            for stop in departure_times[route]:
-                departure_times[route][stop].sort(key=lambda t: t.arrival_time)
+            for direction in departure_times[route]:
+                for stop in departure_times[route][direction]:
+                    departure_times[route][direction][stop].sort(key=lambda t: t.arrival_time)
 
         self.info = departure_times
 
