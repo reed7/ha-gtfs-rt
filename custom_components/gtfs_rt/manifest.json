@@ -4,7 +4,7 @@
     "documentation": "https://github.com/reed7/ha-gtfs-rt",
     "dependencies": [],
     "codeowners": ["@reed7"],
-    "version": "0.0.1",
+    "version": "0.0.2",
     "requirements": [
         "gtfs-realtime-bindings==0.0.5"
     ]
